@@ -1,0 +1,187 @@
+{
+    "AWSTemplateFormatVersion": "2010-09-09",
+    "Description": "Aurora Db Stack",
+    "Parameters": {
+        "EnvironmentName": {
+            "Description": "The string that will be prefixed to each instance name",
+            "Type": "String",
+            "MinLength": "3",
+            "MaxLength": "6",
+            "Default": "dev",
+            "AllowedPattern": "[a-z0-9]*",
+            "ConstraintDescription": "Environment names must be 3-6 characters and contain only a-z and 0-9."
+        },
+        "DbUsername": {
+            "Description": "App Db Username",
+            "Type": "String",
+            "MinLength": "3",
+            "MaxLength": "15",
+            "Default": "dbuser1",
+            "AllowedPattern": "[a-zA-Z][a-zA-Z0-9]*",
+            "ConstraintDescription": "must begin with a letter and contain only alphanumeric characters."
+        },
+        "DbPassword": {
+            "Description": "App Db Password",
+            "NoEcho": "true",
+            "Type": "String",
+            "Default": "sIkWr3d2pu",
+            "MinLength": "8",
+            "MaxLength": "20",
+            "AllowedPattern": "[a-zA-Z0-9]*",
+            "ConstraintDescription": "App Db Password must be 8-20 characters and contain only alpha numeric characters."
+        },
+        "DbType": {
+            "Description": "App Db server RDS instance type",
+            "Type": "String",
+            "Default": "db.t2.small",
+            "AllowedValues": [
+                "db.t2.small",
+                "db.t2.medium",
+                "db.r3.large",
+                "db.r3.xlarge",
+                "db.r3.2xlarge",
+                "db.r3.4xlarge",
+                "db.r3.8xlarge"
+            ],
+            "ConstraintDescription": "must be a valid RDS instance type."
+        },
+        "DBIdentifierNameMaster": {
+            "Description": "The string that will be prefixed to each instance name",
+            "Type": "String",
+            "Default": "acmaster",
+            "MinLength": "3",
+            "MaxLength": "10",
+            "AllowedPattern": "[a-z0-9]*",
+            "ConstraintDescription": "Identifier names must be 3-6 characters and contain only a-z and 0-9."
+        },
+        "DBIdentifierNameReplica": {
+            "Description": "The string that will be prefixed to each instance name",
+            "Type": "String",
+            "Default": "acreplica",
+            "MinLength": "3",
+            "MaxLength": "10",
+            "AllowedPattern": "[a-z0-9]*",
+            "ConstraintDescription": "Identifier names must be 3-10 characters and contain only a-z and 0-9."
+        },
+        "Subnets": {
+            "Type": "CommaDelimitedList",
+            "Default": "subnet-bfb55de6,subnet-ed1db788,subnet-f862aa8f",
+            "Description": "The list of SubnetIds where the stack will be launched"
+        },
+        "DBSecurityGroupName": {
+            "Type": "String",
+            "Default": "sg-fbc6808b",
+            "Description": "Security Group id"
+        }
+    },
+    "Resources": {
+        "DBCluster": {
+            "Type": "AWS::RDS::DBCluster",
+            "Properties": {
+                "Engine": "aurora",
+                "MasterUsername": {
+                    "Ref": "DbUsername"
+                },
+                "MasterUserPassword": {
+                    "Ref": "DbPassword"
+                },
+                "DBSubnetGroupName": "default",
+                "VpcSecurityGroupIds": [
+                    {
+                        "Ref": "DBSecurityGroupName"
+                    }
+                ]
+            }
+        },
+        "RDSinstance": {
+            "Type": "AWS::RDS::DBInstance",
+            "Properties": {
+                "DBClusterIdentifier": {
+                    "Ref": "DBCluster"
+                },
+                "DBInstanceIdentifier": {
+                    "Ref": "DBIdentifierNameMaster"
+                },
+                "DBInstanceClass": {
+                    "Ref": "DbType"
+                },
+                "Engine": "aurora",
+                "DBParameterGroupName": {
+                    "Ref": "DbParameterGroup"
+                },
+                "DBSubnetGroupName": "default",
+                "PubliclyAccessible": "true",
+                "Tags": [
+                    {
+                        "Key": "Name",
+                        "Value": {
+                            "Fn::Join": [
+                                "",
+                                [
+                                    "Master Database-",
+                                    {
+                                        "Ref": "EnvironmentName"
+                                    },
+                                    "-app-db"
+                                ]
+                            ]
+                        }
+                    }
+                ]
+            }
+        },
+        "RDSinstance2": {
+            "Type": "AWS::RDS::DBInstance",
+            "Properties": {
+                "DBClusterIdentifier": {
+                    "Ref": "DBCluster"
+                },
+                "DBInstanceIdentifier": {
+                    "Ref": "DBIdentifierNameReplica"
+                },
+                "DBInstanceClass": {
+                    "Ref": "DbType"
+                },
+                "Engine": "aurora",
+                "DBParameterGroupName": {
+                    "Ref": "DbParameterGroup"
+                },
+                "DBSubnetGroupName": "default",
+                "PubliclyAccessible": "true",
+                "Tags": [
+                    {
+                        "Key": "Name",
+                        "Value": {
+                            "Fn::Join": [
+                                "",
+                                [
+                                    "Read Replica Database-",
+                                    {
+                                        "Ref": "EnvironmentName"
+                                    },
+                                    "-app-db"
+                                ]
+                            ]
+                        }
+                    }
+                ]
+            }
+        },
+        "DbParameterGroup": {
+            "Type": "AWS::RDS::DBParameterGroup",
+            "Properties": {
+                "Description": "AppDbParameters",
+                "Family": "aurora5.6",
+                "Parameters": {
+                    "log_bin_trust_function_creators": "on",
+                    "explicit_defaults_for_timestamp": "0"
+                }
+            }
+        }
+    },
+    "Outputs": {
+        "Endpoint": {
+            "Value": { "Fn::GetAtt" : [ "DBCluster", "Endpoint.Address"]}
+        } 
+    }
+}
